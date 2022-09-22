@@ -54,7 +54,6 @@ cv2.imshow("out", out)
 
 #Save image
 cv2.imwrite("out.jpg", out)
-cv2.imwrite("out.jpg", out)
 cv2.imwrite("out_trimmed.jpg", out_trimmed)
 cv2.imwrite("out_no_bbox.jpg", out_raw)
 cv2.imwrite("out_trimmed_no_bbox.jpg", out_trimmed_no_bbox)

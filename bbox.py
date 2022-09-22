@@ -1,3 +1,6 @@
+from random import randrange
+
+
 class Bbox:
     all = []
 
@@ -20,18 +23,32 @@ class Bbox:
         :return: true if there is an overlap, false otherwise
         """
 
-        for box in Bbox.all:
+        if len(Bbox.all) == 0:
 
-            # # if rectangle has area 0, no overlap
-            # if l[0] == r[0] or l[1] == r[1] or box.r_x == box.l_x or box.l_y == box.r_y:
-            #     return False
+            return False
+
+        for box in Bbox.all:
 
             # If one rectangle is on left side of other
             if l[0] > box.r_x or box.l_x > r[0]:
-                return False
-
+                continue
             # If one rectangle is above other
-            if r[1] > box.l_y or box.r_y > l[1]:
-                return False
+            elif l[1] > box.r_y or box.l_y > r[1]:
+                continue
 
-        return True
+            else:
+                return True
+
+        return False
+
+    @staticmethod
+    def random_bbox_location(image, text_box):
+        """return bbox coordinate which text box fits in the image"""
+        text_x = randrange(image.shape[1] - text_box.shape[1])
+        text_y = randrange(image.shape[0] - text_box.shape[0])
+        l = (text_x, text_y)
+        r = (text_x + text_box.shape[1], text_y + text_box.shape[0])
+        return l, r
+
+    def __repr__(self):
+        print(f"self.l_x: {self.l_x}, self.l_y: {self.l_y}, self.r_x: {self.r_x}, self.r_y: {self.r_y}")

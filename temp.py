@@ -60,3 +60,9 @@ cv2.imwrite("out_trimmed_no_bbox.jpg", out_trimmed_no_bbox)
 
 cv2.waitKey(0)
 
+# if text_x + newW >= self.image.shape[0]:            # if out of frame
+#     print("skipped a text")
+#
+# elif text_y + newH >= self.image.shape[1]:
+#     print("skipped a text")
+# else:

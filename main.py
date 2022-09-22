@@ -1,5 +1,5 @@
 from tkinter import *
-from PIL import Image, ImageTk, EpsImagePlugin, ImageDraw, ImageFont
+from PIL import Image, ImageTk, EpsImagePlugin
 
 import numpy as np
 import cv2
@@ -27,16 +27,17 @@ class MedIMG:
         out_raw = np.zeros((512, 512, 3), np.uint8)
         x_initial, y_initial = 200, 300
         word_info = self.generate_random_word_info()
-        fontScale = 1
+        FONTSCALE = 1
+        OVERLAP = False
         cv2.putText(out_raw, 'Hello World!',
                     (x_initial, y_initial),
                     word_info["FONT"],
-                    fontScale,
+                    FONTSCALE,
                     word_info["COLOR"],
                     word_info["THICKNESS"],
                     word_info["LINE_TYPE"])
 
-        text_width, text_height = cv2.getTextSize('Hello World!', word_info["FONT"], fontScale, word_info["LINE_TYPE"])[0]
+        text_width, text_height = cv2.getTextSize('Hello World!', word_info["FONT"], FONTSCALE, word_info["LINE_TYPE"])[0]
 
         x_c, y_c = int(x_initial + text_width / 2), int(y_initial - text_height / 2)
 
@@ -56,20 +57,14 @@ class MedIMG:
         # bbox location which text is watermarked on image
         l, r = Bbox.random_bbox_location(self.image, text_box)
 
-        while Bbox.do_overlap(l, r):
-            # get another random location
-            l, r = Bbox.random_bbox_location(self.image, text_box)
+        if not OVERLAP:
+            while Bbox.do_overlap(l, r):
+                # get another random location
+                l, r = Bbox.random_bbox_location(self.image, text_box)
 
-        # if text_x + newW >= self.image.shape[0]:            # if out of frame
-        #     print("skipped a text")
-        #
-        # elif text_y + newH >= self.image.shape[1]:
-        #     print("skipped a text")
-        # else:
         self.watermark_word(text_box, l[0], l[1])
         Bbox(l[0], l[1], r[0], r[1])  # adding bbox
         cv2.rectangle(self.image, (l[0], l[1]), (l[0] + text_box.shape[1], l[1] + text_box.shape[0]), (255, 255, 255), 1)
-
 
     def watermark_word(self, word, x, y):
         for i, row in enumerate(word):
@@ -78,7 +73,7 @@ class MedIMG:
                     self.image[y + i, x + j] = [pixel[2], pixel[1], pixel[0]]
 
     @staticmethod
-    def generate_random_word_info(self):
+    def generate_random_word_info():
         # available_fonts = ["FONT_HERSHEY_SIMPLEX",
         #                    "FONT_HERSHEY_PLAIN",
         #                    "FONT_HERSHEY_DUPLEX",
@@ -151,7 +146,7 @@ class DataGenerator(Tk):
 
 
 if __name__ == '__main__':
-    IMG_IDS = ['1', '2', '3', '4']
+
 
     app = DataGenerator()
     med_scan = MedIMG('1')
@@ -160,5 +155,3 @@ if __name__ == '__main__':
     image = ImageTk.PhotoImage(image=Image.fromarray(image_array))
     app.canvas.create_image(0, 0, image=image, anchor='nw')
     app.mainloop()
-    for i in Bbox.all:
-        print(i.__repr__())

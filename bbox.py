@@ -1,5 +1,7 @@
 from random import randrange
 
+import cv2
+
 
 class Bbox:
     all = []
@@ -9,10 +11,12 @@ class Bbox:
     #   |                      |
     #   |_____________________ r
 
-    def __init__(self, l_x, l_y, r_x, r_y):
+    def __init__(self, l_x, l_y, r_x, r_y, TYPE):
 
         self.l_x, self.l_y, self.r_x, self.r_y = l_x, l_y, r_x, r_y
-
+        self.TYPE = TYPE  # 1: text
+                          # 2: drawing
+        self.BOX_COLOR = (255, 0, 0) if self.TYPE == 1 else (0, 255, 0)
         Bbox.all.append(self)
 
     @staticmethod
@@ -24,7 +28,6 @@ class Bbox:
         """
 
         if len(Bbox.all) == 0:
-
             return False
 
         for box in Bbox.all:
@@ -49,6 +52,17 @@ class Bbox:
         l = (text_x, text_y)
         r = (text_x + text_box.shape[1], text_y + text_box.shape[0])
         return l, r
+
+    @staticmethod
+    def draw_bboxes(image):
+        for box in Bbox.all:
+            BOX_COLOR = box.BOX_COLOR
+            cv2.rectangle(image, (box.l_x, box.l_y), (box.r_x, box.r_y), BOX_COLOR, 1)
+
+    @staticmethod
+    def draw_last_bbox(image):
+        BOX_COLOR = Bbox.all[-1].BOX_COLOR
+        cv2.rectangle(image, (Bbox.all[-1].l_x, Bbox.all[-1].l_y), (Bbox.all[-1].r_x, Bbox.all[-1].r_y), BOX_COLOR, 1)
 
     def __repr__(self):
         print(f"self.l_x: {self.l_x}, self.l_y: {self.l_y}, self.r_x: {self.r_x}, self.r_y: {self.r_y}")

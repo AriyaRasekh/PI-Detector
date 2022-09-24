@@ -9,4 +9,5 @@ press and drag mouse to draw a free-hand sketch\
 press **S** to save data\
 press **R** to randomized line size and color\
 press **B** to show/hide bounding boxes\
+press **SPACE** to capture bounding box of the last drawing\
 ![img.png](img.png)

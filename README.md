@@ -1,5 +1,5 @@
-# Synthetic-Data
-Automatic detection of patients' information and annotation on medical images
+# patients' information detector on image\
+Automatic detection of patients' information and annotation on medical images\
 
 
 ### Data Collection - Synthetic data

@@ -2,13 +2,22 @@ import copy
 import numpy as np
 import cv2
 import random
+import requests
+
 
 from bbox import Bbox
 
-
+DEBUG = True
 class MedIMG:
 
     def __init__(self, ID, PATH=''):
+        WORD_DATA_BASE = "https://www.mit.edu/~ecprice/wordlist.10000"
+
+        response = requests.get(WORD_DATA_BASE)
+        self.WORDS = response.content.splitlines()
+        for counter, i in enumerate(self.WORDS):
+            self.WORDS[counter] = i.decode("utf-8")
+
         self.ID = ID
         self.PATH = PATH
         self.image = self.load_from_path()
@@ -25,7 +34,8 @@ class MedIMG:
         word_info = self.generate_random_word_info()
         FONTSCALE = 1
         OVERLAP = False
-        cv2.putText(out_raw, 'Hello World!',
+        cv2.putText(out_raw,
+                    word_info["WORD"],
                     (x_initial, y_initial),
                     word_info["FONT"],
                     FONTSCALE,
@@ -33,7 +43,7 @@ class MedIMG:
                     word_info["THICKNESS"],
                     word_info["LINE_TYPE"])
 
-        text_width, text_height = cv2.getTextSize('Hello World!', word_info["FONT"], FONTSCALE, word_info["LINE_TYPE"])[
+        text_width, text_height = cv2.getTextSize(word_info["WORD"], word_info["FONT"], FONTSCALE, word_info["LINE_TYPE"])[
             0]
 
         x_c, y_c = int(x_initial + text_width / 2), int(y_initial - text_height / 2)
@@ -61,7 +71,6 @@ class MedIMG:
 
         self.watermark_word(text_box, l[0], l[1])
         Bbox(l[0], l[1], r[0], r[1], TYPE=1)  # adding bbox
-        # cv2.rectangle(self.image, (l[0], l[1]), (r[0], r[1]), (255, 255, 255), 1)
 
     def watermark_word(self, word, x, y):
         for i, row in enumerate(word):
@@ -69,8 +78,8 @@ class MedIMG:
                 if np.amax(pixel) > 0:
                     self.image[y + i, x + j] = [pixel[2], pixel[1], pixel[0]]
 
-    @staticmethod
-    def generate_random_word_info():
+    def generate_random_word_info(self):
+
         # available_fonts = ["FONT_HERSHEY_SIMPLEX",
         #                    "FONT_HERSHEY_PLAIN",
         #                    "FONT_HERSHEY_DUPLEX",
@@ -93,15 +102,17 @@ class MedIMG:
         COLOR = available_colors[random.randrange(len(available_colors))]
         THICKNESS = available_thickness[random.randrange(len(available_thickness))]
         LINE_TYPE = available_lineType[random.randrange(len(available_lineType))]
-
+        WORD = self.WORDS[random.randrange(len(self.WORDS))]
         word_info = {
             "ANGLE": ANGLE,
             "FONT": FONT,
             "COLOR": COLOR,
             "THICKNESS": THICKNESS,
-            "LINE_TYPE": LINE_TYPE
+            "LINE_TYPE": LINE_TYPE,
+            "WORD": WORD
         }
 
+        if DEBUG: print(f"picked word is {WORD}")
         return word_info
 
 
@@ -228,7 +239,6 @@ if __name__ == '__main__':
 
         elif key == ord('b'):
             SHOW_BBOX = not SHOW_BBOX
-            print(SHOW_BBOX)
 
         elif key == ord(' '):
             app.add_to_bbox()

@@ -6,7 +6,6 @@ import random
 from bbox import Bbox
 
 
-
 class MedIMG:
 
     def __init__(self, ID, PATH=''):
@@ -34,7 +33,8 @@ class MedIMG:
                     word_info["THICKNESS"],
                     word_info["LINE_TYPE"])
 
-        text_width, text_height = cv2.getTextSize('Hello World!', word_info["FONT"], FONTSCALE, word_info["LINE_TYPE"])[0]
+        text_width, text_height = cv2.getTextSize('Hello World!', word_info["FONT"], FONTSCALE, word_info["LINE_TYPE"])[
+            0]
 
         x_c, y_c = int(x_initial + text_width / 2), int(y_initial - text_height / 2)
 
@@ -130,7 +130,6 @@ class DataGenerator:
         self.shape_initial_x = None
         self.shape_initial_y = None
 
-
     def draw_line(self, event, x, y, flags, param):
 
         if event == cv2.EVENT_LBUTTONDOWN:
@@ -149,13 +148,16 @@ class DataGenerator:
 
         elif event == cv2.EVENT_MOUSEMOVE:
             if self.drawing:
-                cv2.line(self.no_bbox_img, (self.last_x, self.last_y), (x, y), self.line_color, thickness=self.line_thickness)
-                cv2.line(self.bbox_img, (self.last_x, self.last_y), (x, y), self.line_color, thickness=self.line_thickness)
+                cv2.line(self.no_bbox_img, (self.last_x, self.last_y), (x, y), self.line_color,
+                         thickness=self.line_thickness)
+                cv2.line(self.bbox_img, (self.last_x, self.last_y), (x, y), self.line_color,
+                         thickness=self.line_thickness)
                 self.last_x, self.last_y = x, y
 
         elif event == cv2.EVENT_LBUTTONUP:
             self.drawing = False
-            cv2.line(self.no_bbox_img, (self.last_x, self.last_y), (x, y), self.line_color, thickness=self.line_thickness)
+            cv2.line(self.no_bbox_img, (self.last_x, self.last_y), (x, y), self.line_color,
+                     thickness=self.line_thickness)
             cv2.line(self.bbox_img, (self.last_x, self.last_y), (x, y), self.line_color, thickness=self.line_thickness)
 
         if self.drawing:
@@ -186,7 +188,12 @@ class DataGenerator:
             print("ERROR: could no detect any drawing...")
 
         else:
-            Bbox(self.l_x, self.l_y, self.r_x, self.r_y, TYPE=2)
+            bbox_dimension = (self.l_x - (self.line_thickness//2+1),
+                              self.l_y - (self.line_thickness//2+1),
+                              self.r_x + (self.line_thickness//2+1),
+                              self.r_y + (self.line_thickness//2+1))
+
+            Bbox(bbox_dimension[0], bbox_dimension[1], bbox_dimension[2], bbox_dimension[3], TYPE=2)
             Bbox.draw_last_bbox(self.bbox_img)
             self.l_x = None
             self.l_y = None
@@ -194,11 +201,9 @@ class DataGenerator:
             self.r_y = None
 
 
-
-
 if __name__ == '__main__':
 
-    SHOW_BBOX = False
+    SHOW_BBOX = True
     med_scan = MedIMG('1')
     image_array = med_scan.image
 

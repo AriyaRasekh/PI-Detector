@@ -4,10 +4,11 @@ import cv2
 import random
 import requests
 
-
 from bbox import Bbox
 
 DEBUG = True
+
+
 class MedIMG:
 
     def __init__(self, ID, PATH=''):
@@ -199,10 +200,10 @@ class DataGenerator:
             print("ERROR: could no detect any drawing...")
 
         else:
-            bbox_dimension = (self.l_x - (self.line_thickness//2+1),
-                              self.l_y - (self.line_thickness//2+1),
-                              self.r_x + (self.line_thickness//2+1),
-                              self.r_y + (self.line_thickness//2+1))
+            bbox_dimension = (self.l_x - (self.line_thickness // 2 + 1),
+                              self.l_y - (self.line_thickness // 2 + 1),
+                              self.r_x + (self.line_thickness // 2 + 1),
+                              self.r_y + (self.line_thickness // 2 + 1))
 
             Bbox(bbox_dimension[0], bbox_dimension[1], bbox_dimension[2], bbox_dimension[3], TYPE=2)
             Bbox.draw_last_bbox(self.bbox_img)

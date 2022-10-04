@@ -3,15 +3,19 @@ import numpy as np
 import cv2
 import random
 import requests
+import skimage
 
 from bbox import Bbox
 
-DEBUG = True
+DEBUG = False
 
 
 class MedIMG:
 
     def __init__(self, PATH):
+        self.OVERLAP = False
+
+
         WORD_DATA_BASE = "https://www.mit.edu/~ecprice/wordlist.10000"
 
         response = requests.get(WORD_DATA_BASE)
@@ -21,14 +25,20 @@ class MedIMG:
 
         self.image = self.load_from_path(PATH)
 
-        for i in range(14):
+        for i in range(10):
             self.generate_text()
 
-        self.generate_handwritten_text()
+        word_img_path = "TRAIN_00003.jpg"
+
+        for i in range(10):
+            self.generate_handwritten_text(word_img_path)
 
     @staticmethod
     def load_from_path(PATH):
         image = cv2.imread(f"{PATH}", cv2.IMREAD_COLOR)
+        if image is None:
+            raise FileNotFoundError
+
         return image
 
     def generate_text(self):
@@ -36,7 +46,6 @@ class MedIMG:
         x_initial, y_initial = 200, 300
         word_info = self.generate_random_word_info()
         FONTSCALE = 1
-        OVERLAP = False
         cv2.putText(out_raw,
                     word_info["WORD"],
                     (x_initial, y_initial),
@@ -66,7 +75,7 @@ class MedIMG:
         # bbox location which text is watermarked on image
         l, r = Bbox.random_bbox_location(self.image, text_box)
 
-        if not OVERLAP:
+        if not self.OVERLAP:
             while Bbox.do_overlap(l, r):
                 # get another random location
                 l, r = Bbox.random_bbox_location(self.image, text_box)
@@ -81,7 +90,14 @@ class MedIMG:
                 if np.amax(pixel) > 0:
                     self.image[y + i, x + j] = [pixel[2], pixel[1], pixel[0]]
 
-    def generate_random_word_info(self):
+    def watermark_handwritten_word(self, word, x, y, color):
+        WHITENESS_THRESHOLD = 200       # any pixel value > WHITENESS_THRESHOLD wil be consider as background
+        for i, row in enumerate(word):
+            for j, pixel in enumerate(row):
+                if np.amax(pixel) < WHITENESS_THRESHOLD:
+                    self.image[y + i, x + j] = [color[0], color[1], color[2]]
+
+    def generate_random_word_info(self, handwritten=False):
 
         # available_fonts = ["FONT_HERSHEY_SIMPLEX",
         #                    "FONT_HERSHEY_PLAIN",
@@ -91,7 +107,7 @@ class MedIMG:
         #                    "FONT_HERSHEY_COMPLEX_SMALL",
         #                    "FONT_HERSHEY_SCRIPT_SIMPLEX",
         #                    "FONT_HERSHEY_SCRIPT_COMPLEX"]
-        available_fonts = [0, 1, 2, 3, 4, 5, 6, 7]
+        available_fonts = [0, 1, 2, 3]
 
         available_colors = [(255, 255, 255),
                             (255, 255, 0),
@@ -100,34 +116,64 @@ class MedIMG:
 
         available_thickness = [1, 2, 3]
         available_lineType = [2]
+        #------------------------------
+        available_sizes = [75, 100, 100, 100, 150, 200]
+
+
         ANGLE = random.randrange(360)
         FONT = available_fonts[random.randrange(len(available_fonts))]
         COLOR = available_colors[random.randrange(len(available_colors))]
-        THICKNESS = available_thickness[random.randrange(len(available_thickness))]
-        LINE_TYPE = available_lineType[random.randrange(len(available_lineType))]
-        WORD = self.WORDS[random.randrange(len(self.WORDS))]
-        word_info = {
-            "ANGLE": ANGLE,
-            "FONT": FONT,
-            "COLOR": COLOR,
-            "THICKNESS": THICKNESS,
-            "LINE_TYPE": LINE_TYPE,
-            "WORD": WORD
-        }
 
-        if DEBUG: print(f"picked word is {WORD}")
+
+        if handwritten:
+            # ONLY hand-written word specifics
+            RESIZE = available_sizes[random.randrange(len(available_sizes))]
+            COLOR = (random.randrange(255), random.randrange(255), random.randrange(255))
+            word_info = {
+                "ANGLE": ANGLE,
+                "COLOR": COLOR,
+                "Resize_value": RESIZE               # re-sizes the original picture by Resize_value%
+            }
+
+        else:
+            # ONLY printed word specifics
+            THICKNESS = available_thickness[random.randrange(len(available_thickness))]
+            LINE_TYPE = available_lineType[random.randrange(len(available_lineType))]
+            WORD = self.WORDS[random.randrange(len(self.WORDS))]
+            if DEBUG: print(f"picked word is {WORD}")
+
+            word_info = {
+                "ANGLE": ANGLE,
+                "FONT": FONT,
+                "COLOR": COLOR,
+                "THICKNESS": THICKNESS,
+                "LINE_TYPE": LINE_TYPE,
+                "WORD": WORD
+            }
+
         return word_info
 
-    def generate_handwritten_text(self):
+    def generate_handwritten_text(self, data_path):
+
+
         out_raw = np.zeros((512, 512, 3), np.uint8)
-        out_raw.fill(255)
-        x_initial, y_initial = 200, 300
-        word_img_path = "TRAIN_08775.jpg"
-        word_img = self.load_from_path(word_img_path)
+        out_raw.fill(255)       # creating a white raw picture
+        word_img = self.load_from_path(data_path)
+        x_initial, y_initial = 100, 200
+
+        word_info = self.generate_random_word_info(handwritten=True)
+
+        scale_width = int(word_img.shape[1] * word_info["Resize_value"] / 100)
+        scale_height = int(word_img.shape[0] * word_info["Resize_value"] / 100)
+        dim = (scale_width, scale_height)
+        word_img = cv2.resize(word_img, dim, interpolation=cv2.INTER_AREA)
+
         text_height, text_width = word_img.shape[0], word_img.shape[1]
-        x_c, y_c = int(x_initial + text_width / 2), int(y_initial - text_height / 2)
-        out_raw[x_initial:x_initial+text_height, y_initial:y_initial+text_width] = word_img
-        M = cv2.getRotationMatrix2D((x_c, y_c), 30, 1)
+        x_c, y_c = int(x_initial + text_width / 2), int(y_initial + text_height / 2)
+        if DEBUG:    print(f"images shape: {word_img.shape} | {out_raw.shape}")
+        out_raw[y_initial:y_initial + text_height, x_initial:x_initial + text_width] = word_img
+
+        M = cv2.getRotationMatrix2D((x_c, y_c), word_info["ANGLE"], 1)
         out_raw = cv2.warpAffine(out_raw, M, (out_raw.shape[1], out_raw.shape[0]))
 
         cos, sin = abs(M[0, 0]), abs(M[0, 1])
@@ -139,15 +185,19 @@ class MedIMG:
         newY2 = y_c + int(newH / 2)
 
         text_box = out_raw[newY:newY2, newX:newX2, :]
-        cv2.imwrite("test_b.png", text_box)
+
         # bbox location which text is watermarked on image
         l, r = Bbox.random_bbox_location(self.image, text_box)
-        for i, row in enumerate(text_box):
-            for j, pixel in enumerate(row):
-                if np.amax(pixel) == 255:
-                    self.image[l[1] + i, l[0] + j] = [pixel[2], pixel[1], pixel[0]]
+
+        if not self.OVERLAP:
+            while Bbox.do_overlap(l, r):
+                # get another random location
+                l, r = Bbox.random_bbox_location(self.image, text_box)
+
+        self.watermark_handwritten_word(text_box, l[0], l[1], word_info["COLOR"])
 
         Bbox(l[0], l[1], r[0], r[1], TYPE=1)  # adding bbox
+
 
 class DataGenerator:
 
@@ -265,6 +315,7 @@ if __name__ == '__main__':
 
         if key == ord('s'):  # save and exit
             app.save_img()
+            print("saving...")
             break
 
         elif key == ord('r'):

@@ -11,7 +11,7 @@ DEBUG = True
 
 class MedIMG:
 
-    def __init__(self, ID, PATH=''):
+    def __init__(self, PATH):
         WORD_DATA_BASE = "https://www.mit.edu/~ecprice/wordlist.10000"
 
         response = requests.get(WORD_DATA_BASE)
@@ -19,14 +19,16 @@ class MedIMG:
         for counter, i in enumerate(self.WORDS):
             self.WORDS[counter] = i.decode("utf-8")
 
-        self.ID = ID
-        self.PATH = PATH
-        self.image = self.load_from_path()
+        self.image = self.load_from_path(PATH)
+
         for i in range(14):
             self.generate_text()
 
-    def load_from_path(self):
-        image = cv2.imread(f"{self.PATH}{self.ID}.png", cv2.IMREAD_COLOR)
+        self.generate_handwritten_text()
+
+    @staticmethod
+    def load_from_path(PATH):
+        image = cv2.imread(f"{PATH}", cv2.IMREAD_COLOR)
         return image
 
     def generate_text(self):
@@ -46,7 +48,6 @@ class MedIMG:
 
         text_width, text_height = cv2.getTextSize(word_info["WORD"], word_info["FONT"], FONTSCALE, word_info["LINE_TYPE"])[
             0]
-
         x_c, y_c = int(x_initial + text_width / 2), int(y_initial - text_height / 2)
 
         M = cv2.getRotationMatrix2D((x_c, y_c), word_info["ANGLE"], 1)
@@ -71,6 +72,7 @@ class MedIMG:
                 l, r = Bbox.random_bbox_location(self.image, text_box)
 
         self.watermark_word(text_box, l[0], l[1])
+
         Bbox(l[0], l[1], r[0], r[1], TYPE=1)  # adding bbox
 
     def watermark_word(self, word, x, y):
@@ -116,6 +118,36 @@ class MedIMG:
         if DEBUG: print(f"picked word is {WORD}")
         return word_info
 
+    def generate_handwritten_text(self):
+        out_raw = np.zeros((512, 512, 3), np.uint8)
+        out_raw.fill(255)
+        x_initial, y_initial = 200, 300
+        word_img_path = "TRAIN_08775.jpg"
+        word_img = self.load_from_path(word_img_path)
+        text_height, text_width = word_img.shape[0], word_img.shape[1]
+        x_c, y_c = int(x_initial + text_width / 2), int(y_initial - text_height / 2)
+        out_raw[x_initial:x_initial+text_height, y_initial:y_initial+text_width] = word_img
+        M = cv2.getRotationMatrix2D((x_c, y_c), 30, 1)
+        out_raw = cv2.warpAffine(out_raw, M, (out_raw.shape[1], out_raw.shape[0]))
+
+        cos, sin = abs(M[0, 0]), abs(M[0, 1])
+        newW = int((text_height * sin) + (text_width * cos))
+        newH = int((text_height * cos) + (text_width * sin))
+        newX = x_c - int(newW / 2)
+        newY = y_c - int(newH / 2)
+        newX2 = x_c + int(newW / 2)
+        newY2 = y_c + int(newH / 2)
+
+        text_box = out_raw[newY:newY2, newX:newX2, :]
+        cv2.imwrite("test_b.png", text_box)
+        # bbox location which text is watermarked on image
+        l, r = Bbox.random_bbox_location(self.image, text_box)
+        for i, row in enumerate(text_box):
+            for j, pixel in enumerate(row):
+                if np.amax(pixel) == 255:
+                    self.image[l[1] + i, l[0] + j] = [pixel[2], pixel[1], pixel[0]]
+
+        Bbox(l[0], l[1], r[0], r[1], TYPE=1)  # adding bbox
 
 class DataGenerator:
 
@@ -216,7 +248,7 @@ class DataGenerator:
 if __name__ == '__main__':
 
     SHOW_BBOX = True
-    med_scan = MedIMG('1')
+    med_scan = MedIMG('1.png')
     image_array = med_scan.image
 
     app = DataGenerator(image_array)

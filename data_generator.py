@@ -39,14 +39,15 @@ class MedIMG:
                   font_scale,
                   font_thickness,
                   text_color,
-                  text_color_bg
+                  text_color_bg,
+                  line_type
                   ):
 
         x, y = pos
         text_size, _ = cv2.getTextSize(text, font, font_scale, font_thickness)
         text_w, text_h = text_size
         cv2.rectangle(img, pos, (x + text_w, y - text_h), text_color_bg, -1)
-        cv2.putText(img, text, (x, y + text_h + font_scale - 1), font, font_scale, text_color, font_thickness)
+        cv2.putText(img, text, pos, font, font_scale, text_color, font_thickness, line_type)
 
     def generate_text(self):
         out_raw = np.zeros((512, 512, 3), np.uint8)
@@ -60,7 +61,6 @@ class MedIMG:
         newX, newY, newX2, newY2, M = MedIMG.get_rotated_points(x_c, y_c, word_info["ANGLE"], text_height, text_width)
 
         if fill_background:
-            # cv2.rectangle(out_raw, (x_initial, y_initial + 7), (x_initial + text_width, y_initial - text_height - 7), (123, 123, 123), -1)
             MedIMG.draw_text(out_raw,
                              word_info["WORD"],
                              font=word_info["FONT"],
@@ -68,16 +68,19 @@ class MedIMG:
                              font_thickness=word_info["THICKNESS"],
                              pos=(x_initial, y_initial),
                              text_color=word_info["COLOR"],
-                             text_color_bg=(123, 123, 123))
+                             text_color_bg=(123, 123, 123),
+                             line_type=word_info["LINE_TYPE"])
 
-        cv2.putText(out_raw,
-                    word_info["WORD"],
-                    (x_initial, y_initial),
-                    word_info["FONT"],
-                    FONTSCALE,
-                    word_info["COLOR"],
-                    word_info["THICKNESS"],
-                    word_info["LINE_TYPE"])
+
+        else:
+            cv2.putText(out_raw,
+                        word_info["WORD"],
+                        (x_initial, y_initial),
+                        word_info["FONT"],
+                        FONTSCALE,
+                        word_info["COLOR"],
+                        word_info["THICKNESS"],
+                        word_info["LINE_TYPE"])
 
         out_raw = cv2.warpAffine(out_raw, M, (out_raw.shape[1], out_raw.shape[0]))
         text_box = out_raw[newY:newY2, newX:newX2, :]
@@ -98,11 +101,8 @@ class MedIMG:
         if fill_background:
             for i, row in enumerate(word):
                 for j, pixel in enumerate(row):
-                    print(pixel)
                     if pixel[0] == 123 and pixel[1] == 123 and pixel[2] == 123:
                         self.image[y + i, x + j] = [0, 0, 0]
-                    # elif np.amax(pixel) > 0:
-                    #     self.image[y + i, x + j] = [pixel[2], pixel[1], pixel[0]]
 
         else:
             for i, row in enumerate(word):

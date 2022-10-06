@@ -15,7 +15,6 @@ class MedIMG:
     def __init__(self, PATH):
         self.OVERLAP = False
 
-
         WORD_DATA_BASE = "https://www.mit.edu/~ecprice/wordlist.10000"
 
         response = requests.get(WORD_DATA_BASE)
@@ -34,18 +33,43 @@ class MedIMG:
             self.generate_handwritten_text(word_img_path)
 
     @staticmethod
-    def load_from_path(PATH):
-        image = cv2.imread(f"{PATH}", cv2.IMREAD_COLOR)
-        if image is None:
-            raise FileNotFoundError
+    def draw_text(img, text,
+                  font,
+                  pos,
+                  font_scale,
+                  font_thickness,
+                  text_color,
+                  text_color_bg
+                  ):
 
-        return image
+        x, y = pos
+        text_size, _ = cv2.getTextSize(text, font, font_scale, font_thickness)
+        text_w, text_h = text_size
+        cv2.rectangle(img, pos, (x + text_w, y - text_h), text_color_bg, -1)
+        cv2.putText(img, text, (x, y + text_h + font_scale - 1), font, font_scale, text_color, font_thickness)
 
     def generate_text(self):
         out_raw = np.zeros((512, 512, 3), np.uint8)
         x_initial, y_initial = 200, 300
         word_info = self.generate_random_word_info()
         FONTSCALE = 1
+        text_width, text_height = cv2.getTextSize(word_info["WORD"], word_info["FONT"], FONTSCALE, word_info["LINE_TYPE"])[0]
+        x_c, y_c = int(x_initial + text_width / 2), int(y_initial - text_height / 2)
+        fill_background = True if random.random() < 0.1 else False
+        # fill_background = Falbse
+        newX, newY, newX2, newY2, M = MedIMG.get_rotated_points(x_c, y_c, word_info["ANGLE"], text_height, text_width)
+
+        if fill_background:
+            # cv2.rectangle(out_raw, (x_initial, y_initial + 7), (x_initial + text_width, y_initial - text_height - 7), (123, 123, 123), -1)
+            MedIMG.draw_text(out_raw,
+                             word_info["WORD"],
+                             font=word_info["FONT"],
+                             font_scale=FONTSCALE,
+                             font_thickness=word_info["THICKNESS"],
+                             pos=(x_initial, y_initial),
+                             text_color=word_info["COLOR"],
+                             text_color_bg=(123, 123, 123))
+
         cv2.putText(out_raw,
                     word_info["WORD"],
                     (x_initial, y_initial),
@@ -55,21 +79,7 @@ class MedIMG:
                     word_info["THICKNESS"],
                     word_info["LINE_TYPE"])
 
-        text_width, text_height = cv2.getTextSize(word_info["WORD"], word_info["FONT"], FONTSCALE, word_info["LINE_TYPE"])[
-            0]
-        x_c, y_c = int(x_initial + text_width / 2), int(y_initial - text_height / 2)
-
-        M = cv2.getRotationMatrix2D((x_c, y_c), word_info["ANGLE"], 1)
         out_raw = cv2.warpAffine(out_raw, M, (out_raw.shape[1], out_raw.shape[0]))
-
-        cos, sin = abs(M[0, 0]), abs(M[0, 1])
-        newW = int((text_height * sin) + (text_width * cos))
-        newH = int((text_height * cos) + (text_width * sin))
-        newX = x_c - int(newW / 2)
-        newY = y_c - int(newH / 2)
-        newX2 = x_c + int(newW / 2)
-        newY2 = y_c + int(newH / 2)
-
         text_box = out_raw[newY:newY2, newX:newX2, :]
 
         # bbox location which text is watermarked on image
@@ -80,18 +90,28 @@ class MedIMG:
                 # get another random location
                 l, r = Bbox.random_bbox_location(self.image, text_box)
 
-        self.watermark_word(text_box, l[0], l[1])
+        self.watermark_word(text_box, l[0], l[1], fill_background=fill_background)
 
         Bbox(l[0], l[1], r[0], r[1], TYPE=1)  # adding bbox
 
-    def watermark_word(self, word, x, y):
-        for i, row in enumerate(word):
-            for j, pixel in enumerate(row):
-                if np.amax(pixel) > 0:
-                    self.image[y + i, x + j] = [pixel[2], pixel[1], pixel[0]]
+    def watermark_word(self, word, x, y, fill_background=False):
+        if fill_background:
+            for i, row in enumerate(word):
+                for j, pixel in enumerate(row):
+                    print(pixel)
+                    if pixel[0] == 123 and pixel[1] == 123 and pixel[2] == 123:
+                        self.image[y + i, x + j] = [0, 0, 0]
+                    # elif np.amax(pixel) > 0:
+                    #     self.image[y + i, x + j] = [pixel[2], pixel[1], pixel[0]]
+
+        else:
+            for i, row in enumerate(word):
+                for j, pixel in enumerate(row):
+                    if np.amax(pixel) > 0:
+                        self.image[y + i, x + j] = [pixel[2], pixel[1], pixel[0]]
 
     def watermark_handwritten_word(self, word, x, y, color):
-        WHITENESS_THRESHOLD = 200       # any pixel value > WHITENESS_THRESHOLD wil be consider as background
+        WHITENESS_THRESHOLD = 200  # any pixel value > WHITENESS_THRESHOLD wil be consider as background
         for i, row in enumerate(word):
             for j, pixel in enumerate(row):
                 if np.amax(pixel) < WHITENESS_THRESHOLD:
@@ -114,16 +134,15 @@ class MedIMG:
                             (255, 0, 255),
                             (0, 255, 255)]
 
-        available_thickness = [1, 2, 3]
+        available_thickness = [1, 2]
         available_lineType = [2]
-        #------------------------------
-        available_sizes = [75, 100, 100, 100, 150, 200]
+        # ------------------------------
+        available_sizes = [75, 100, 100, 100, 150, 200, 300]
+        angels = [0, 0, 0, 45, 90, 180, 270, 315]
 
-
-        ANGLE = random.randrange(360)
+        ANGLE = angels[random.randrange(len(angels))]
         FONT = available_fonts[random.randrange(len(available_fonts))]
         COLOR = available_colors[random.randrange(len(available_colors))]
-
 
         if handwritten:
             # ONLY hand-written word specifics
@@ -132,7 +151,7 @@ class MedIMG:
             word_info = {
                 "ANGLE": ANGLE,
                 "COLOR": COLOR,
-                "Resize_value": RESIZE               # re-sizes the original picture by Resize_value%
+                "Resize_value": RESIZE  # re-sizes the original picture by Resize_value%
             }
 
         else:
@@ -155,9 +174,8 @@ class MedIMG:
 
     def generate_handwritten_text(self, data_path):
 
-
         out_raw = np.zeros((512, 512, 3), np.uint8)
-        out_raw.fill(255)       # creating a white raw picture
+        out_raw.fill(255)  # creating a white raw picture
         word_img = self.load_from_path(data_path)
         x_initial, y_initial = 100, 200
 
@@ -173,16 +191,9 @@ class MedIMG:
         if DEBUG:    print(f"images shape: {word_img.shape} | {out_raw.shape}")
         out_raw[y_initial:y_initial + text_height, x_initial:x_initial + text_width] = word_img
 
-        M = cv2.getRotationMatrix2D((x_c, y_c), word_info["ANGLE"], 1)
-        out_raw = cv2.warpAffine(out_raw, M, (out_raw.shape[1], out_raw.shape[0]))
+        newX, newY, newX2, newY2, M = MedIMG.get_rotated_points(x_c, y_c, word_info["ANGLE"], text_height, text_width)
 
-        cos, sin = abs(M[0, 0]), abs(M[0, 1])
-        newW = int((text_height * sin) + (text_width * cos))
-        newH = int((text_height * cos) + (text_width * sin))
-        newX = x_c - int(newW / 2)
-        newY = y_c - int(newH / 2)
-        newX2 = x_c + int(newW / 2)
-        newY2 = y_c + int(newH / 2)
+        out_raw = cv2.warpAffine(out_raw, M, (out_raw.shape[1], out_raw.shape[0]))
 
         text_box = out_raw[newY:newY2, newX:newX2, :]
 
@@ -198,10 +209,31 @@ class MedIMG:
 
         Bbox(l[0], l[1], r[0], r[1], TYPE=1)  # adding bbox
 
+    @staticmethod
+    def load_from_path(PATH):
+        image = cv2.imread(f"{PATH}", cv2.IMREAD_COLOR)
+        if image is None:
+            raise FileNotFoundError
+
+        return image
+
+    @staticmethod
+    def get_rotated_points(x_c, y_c, angle, text_height, text_width):
+        M = cv2.getRotationMatrix2D((x_c, y_c), angle, 1)
+        cos, sin = abs(M[0, 0]), abs(M[0, 1])
+        newW = int((text_height * sin) + (text_width * cos))
+        newH = int((text_height * cos) + (text_width * sin))
+        newX = x_c - int(newW / 2)
+        newY = y_c - int(newH / 2)
+        newX2 = x_c + int(newW / 2)
+        newY2 = y_c + int(newH / 2)
+
+        return newX, newY, newX2, newY2, M
+
 
 class DataGenerator:
 
-    def __init__(self, row_img, *args, **kwargs):
+    def __init__(self, row_img):
 
         self.no_bbox_img = copy.deepcopy(row_img)
         self.bbox_img = copy.deepcopy(row_img)
@@ -297,7 +329,7 @@ class DataGenerator:
 
 if __name__ == '__main__':
 
-    SHOW_BBOX = True
+    SHOW_BBOX = False
     med_scan = MedIMG('1.png')
     image_array = med_scan.image
 

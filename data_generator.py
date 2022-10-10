@@ -4,16 +4,18 @@ import cv2
 import random
 import requests
 import pickle
+
+import config
 from bbox import Bbox
 
 DEBUG = False
 
 
 class MedIMG:
-    WHITENESS_THRESHOLD = 205  # any pixel value > WHITENESS_THRESHOLD wil be consider as background for handwritten words
-    WORD_DATA_BASE = "https://www.mit.edu/~ecprice/wordlist.10000"
-    HANDWRITTEN_WORDS_PATH = "A:\Research Assistant\Synthetic-Data\hand_written_words\\"
-    HANDWRITTEN_WORDS_IDS_PATH = f"{HANDWRITTEN_WORDS_PATH}img_names.pkl"
+    WHITENESS_THRESHOLD = 205  # any pixel value > WHITENESS_THRESHOLD wil be considered as background for handwritten words
+    WORD_DATA_BASE = config.WORD_DATA_BASE
+    HANDWRITTEN_WORDS_PATH = config.HANDWRITTEN_WORDS_PATH
+    HANDWRITTEN_WORDS_IDS_PATH = config.HANDWRITTEN_WORDS_IDS_PATH
 
     def __init__(self, PATH):
         self.OVERLAP = False

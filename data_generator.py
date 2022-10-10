@@ -3,22 +3,27 @@ import numpy as np
 import cv2
 import random
 import requests
-import skimage
-
+import pickle
 from bbox import Bbox
 
 DEBUG = False
 
 
 class MedIMG:
+    WHITENESS_THRESHOLD = 205  # any pixel value > WHITENESS_THRESHOLD wil be consider as background for handwritten words
+    WORD_DATA_BASE = "https://www.mit.edu/~ecprice/wordlist.10000"
+    HANDWRITTEN_WORDS_PATH = "A:\Research Assistant\Synthetic-Data\hand_written_words\\"
+    HANDWRITTEN_WORDS_IDS_PATH = f"{HANDWRITTEN_WORDS_PATH}img_names.pkl"
 
     def __init__(self, PATH):
         self.OVERLAP = False
 
-        WORD_DATA_BASE = "https://www.mit.edu/~ecprice/wordlist.10000"
-
-        response = requests.get(WORD_DATA_BASE)
+        response = requests.get(MedIMG.WORD_DATA_BASE)
         self.WORDS = response.content.splitlines()
+
+        with open(MedIMG.HANDWRITTEN_WORDS_IDS_PATH, 'rb') as f:
+            self.HANDWRITTEN_WORDS_IDS = pickle.load(f)
+
         for counter, i in enumerate(self.WORDS):
             self.WORDS[counter] = i.decode("utf-8")
 
@@ -27,10 +32,9 @@ class MedIMG:
         for i in range(10):
             self.generate_text()
 
-        word_img_path = "TRAIN_00003.jpg"
-
         for i in range(10):
-            self.generate_handwritten_text(word_img_path)
+            random_handwritten_word = self.HANDWRITTEN_WORDS_IDS[random.randrange(len(self.HANDWRITTEN_WORDS_IDS))]
+            self.generate_handwritten_text(MedIMG.HANDWRITTEN_WORDS_PATH + random_handwritten_word)
 
     @staticmethod
     def draw_text(img, text,
@@ -111,10 +115,9 @@ class MedIMG:
                         self.image[y + i, x + j] = [pixel[2], pixel[1], pixel[0]]
 
     def watermark_handwritten_word(self, word, x, y, color):
-        WHITENESS_THRESHOLD = 200  # any pixel value > WHITENESS_THRESHOLD wil be consider as background
         for i, row in enumerate(word):
             for j, pixel in enumerate(row):
-                if np.amax(pixel) < WHITENESS_THRESHOLD:
+                if np.amax(pixel) < MedIMG.WHITENESS_THRESHOLD:
                     self.image[y + i, x + j] = [color[0], color[1], color[2]]
 
     def generate_random_word_info(self, handwritten=False):

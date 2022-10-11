@@ -4,11 +4,13 @@ import cv2
 import random
 import requests
 import pickle
+import pandas as pd
+
 
 import config
 from bbox import Bbox
 
-DEBUG = False
+DEBUG = True
 
 
 class MedIMG:
@@ -18,7 +20,7 @@ class MedIMG:
     HANDWRITTEN_WORDS_IDS_PATH = config.HANDWRITTEN_WORDS_IDS_PATH
 
     def __init__(self, PATH):
-        self.OVERLAP = False
+        self.OVERLAP = True
 
         response = requests.get(MedIMG.WORD_DATA_BASE)
         self.WORDS = response.content.splitlines()
@@ -36,6 +38,7 @@ class MedIMG:
 
         for i in range(10):
             random_handwritten_word = self.HANDWRITTEN_WORDS_IDS[random.randrange(len(self.HANDWRITTEN_WORDS_IDS))]
+            random_handwritten_word = self.HANDWRITTEN_WORDS_IDS[0]
             self.generate_handwritten_text(MedIMG.HANDWRITTEN_WORDS_PATH + random_handwritten_word)
 
     @staticmethod
@@ -193,7 +196,7 @@ class MedIMG:
 
         text_height, text_width = word_img.shape[0], word_img.shape[1]
         x_c, y_c = int(x_initial + text_width / 2), int(y_initial + text_height / 2)
-        if DEBUG:    print(f"images shape: {word_img.shape} | {out_raw.shape}")
+        if DEBUG:    print(f"data path: {data_path} | images shape: {word_img.shape} | {out_raw.shape}")
         out_raw[y_initial:y_initial + text_height, x_initial:x_initial + text_width] = word_img
 
         newX, newY, newX2, newY2, M = MedIMG.get_rotated_points(x_c, y_c, word_info["ANGLE"], text_height, text_width)
@@ -234,6 +237,9 @@ class MedIMG:
         newY2 = y_c + int(newH / 2)
 
         return newX, newY, newX2, newY2, M
+
+    def save_img(self, full_path):
+        cv2.imwrite(full_path, self.image)
 
 
 class DataGenerator:
@@ -335,33 +341,38 @@ class DataGenerator:
 if __name__ == '__main__':
 
     SHOW_BBOX = False
-    med_scan = MedIMG('1.png')
-    image_array = med_scan.image
+    X_RAY_SCAN_IDS_PATH = config.X_RAY_SCAN_IDS_PATH
+    with open(X_RAY_SCAN_IDS_PATH, 'rb') as f:
+        x_ray_ids = pickle.load(f)
+    for id in x_ray_ids:
+        med_scan = MedIMG(f"{config.X_RAY_SCAN_PATH}{id}")
+        med_scan.save_img(config.DATA_OUTPUT + id)
 
-    app = DataGenerator(image_array)
-
-    cv2.namedWindow('test draw')
-    cv2.setMouseCallback('test draw', app.draw_line)
-    while True:
-        if SHOW_BBOX:
-            cv2.imshow('test draw', app.bbox_img)
-        else:
-            cv2.imshow('test draw', app.no_bbox_img)
-
-        key = cv2.waitKey(1)
-
-        if key == ord('s'):  # save and exit
-            app.save_img()
-            print("saving...")
-            break
-
-        elif key == ord('r'):
-            app.make_random_line()
-
-        elif key == ord('b'):
-            SHOW_BBOX = not SHOW_BBOX
-
-        elif key == ord(' '):
-            app.add_to_bbox()
-
-    cv2.destroyAllWindows()
+    # image_array = med_scan.image
+    # app = DataGenerator(image_array)
+    #
+    # cv2.namedWindow('test draw')
+    # cv2.setMouseCallback('test draw', app.draw_line)
+    # while True:
+    #     if SHOW_BBOX:
+    #         cv2.imshow('test draw', app.bbox_img)
+    #     else:
+    #         cv2.imshow('test draw', app.no_bbox_img)
+    #
+    #     key = cv2.waitKey(1)
+    #
+    #     if key == ord('s'):  # save and exit
+    #         app.save_img()
+    #         print("saving...")
+    #         break
+    #
+    #     elif key == ord('r'):
+    #         app.make_random_line()
+    #
+    #     elif key == ord('b'):
+    #         SHOW_BBOX = not SHOW_BBOX
+    #
+    #     elif key == ord(' '):
+    #         app.add_to_bbox()
+    #
+    # cv2.destroyAllWindows()

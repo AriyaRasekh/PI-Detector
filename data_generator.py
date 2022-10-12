@@ -4,13 +4,12 @@ import cv2
 import random
 import requests
 import pickle
-import pandas as pd
-
+import os
 
 import config
 from bbox import Bbox
 
-DEBUG = True
+DEBUG = False
 
 
 class MedIMG:
@@ -20,7 +19,7 @@ class MedIMG:
     HANDWRITTEN_WORDS_IDS_PATH = config.HANDWRITTEN_WORDS_IDS_PATH
 
     def __init__(self, PATH):
-        self.OVERLAP = True
+        self.OVERLAP = False
 
         response = requests.get(MedIMG.WORD_DATA_BASE)
         self.WORDS = response.content.splitlines()
@@ -33,12 +32,12 @@ class MedIMG:
 
         self.image = self.load_from_path(PATH)
 
-        for i in range(10):
+        for i in range(5):
             self.generate_text()
 
-        for i in range(10):
+        for i in range(5):
             random_handwritten_word = self.HANDWRITTEN_WORDS_IDS[random.randrange(len(self.HANDWRITTEN_WORDS_IDS))]
-            random_handwritten_word = self.HANDWRITTEN_WORDS_IDS[0]
+            # random_handwritten_word = self.HANDWRITTEN_WORDS_IDS[0]
             self.generate_handwritten_text(MedIMG.HANDWRITTEN_WORDS_PATH + random_handwritten_word)
 
     @staticmethod
@@ -59,11 +58,14 @@ class MedIMG:
         cv2.putText(img, text, pos, font, font_scale, text_color, font_thickness, line_type)
 
     def generate_text(self):
-        out_raw = np.zeros((512, 512, 3), np.uint8)
+        out_raw = np.zeros((700, 700, 3), np.uint8)
         x_initial, y_initial = 200, 300
         word_info = self.generate_random_word_info()
         FONTSCALE = 1
         text_width, text_height = cv2.getTextSize(word_info["WORD"], word_info["FONT"], FONTSCALE, word_info["LINE_TYPE"])[0]
+        if x_initial + text_width > out_raw.shape[1] or y_initial + text_height > out_raw.shape[0]:
+            print("returning None 67")
+            return None
         x_c, y_c = int(x_initial + text_width / 2), int(y_initial - text_height / 2)
         fill_background = True if random.random() < 0.1 else False
         # fill_background = Falbse
@@ -98,9 +100,15 @@ class MedIMG:
         l, r = Bbox.random_bbox_location(self.image, text_box)
 
         if not self.OVERLAP:
+            MAX_ALLOWED_TRIES = 100
+            tries_counter = 0
             while Bbox.do_overlap(l, r):
+                if tries_counter > MAX_ALLOWED_TRIES:
+                    print("returning None 105")
+                    return None
                 # get another random location
                 l, r = Bbox.random_bbox_location(self.image, text_box)
+                tries_counter += 1
 
         self.watermark_word(text_box, l[0], l[1], fill_background=fill_background)
 
@@ -182,7 +190,7 @@ class MedIMG:
 
     def generate_handwritten_text(self, data_path):
 
-        out_raw = np.zeros((512, 512, 3), np.uint8)
+        out_raw = np.zeros((700, 700, 3), np.uint8)
         out_raw.fill(255)  # creating a white raw picture
         word_img = self.load_from_path(data_path)
         x_initial, y_initial = 100, 200
@@ -197,6 +205,9 @@ class MedIMG:
         text_height, text_width = word_img.shape[0], word_img.shape[1]
         x_c, y_c = int(x_initial + text_width / 2), int(y_initial + text_height / 2)
         if DEBUG:    print(f"data path: {data_path} | images shape: {word_img.shape} | {out_raw.shape}")
+        if x_initial + text_width > out_raw.shape[1] or y_initial + text_height > out_raw.shape[0]:
+            print("returning None 207")
+            return None
         out_raw[y_initial:y_initial + text_height, x_initial:x_initial + text_width] = word_img
 
         newX, newY, newX2, newY2, M = MedIMG.get_rotated_points(x_c, y_c, word_info["ANGLE"], text_height, text_width)
@@ -209,9 +220,15 @@ class MedIMG:
         l, r = Bbox.random_bbox_location(self.image, text_box)
 
         if not self.OVERLAP:
+            MAX_ALLOWED_TRIES = 100
+            tries_counter = 0
             while Bbox.do_overlap(l, r):
+                if tries_counter > MAX_ALLOWED_TRIES:
+                    print("returning None 224")
+                    return None
                 # get another random location
                 l, r = Bbox.random_bbox_location(self.image, text_box)
+                tries_counter += 1
 
         self.watermark_handwritten_word(text_box, l[0], l[1], word_info["COLOR"])
 
@@ -340,39 +357,63 @@ class DataGenerator:
 
 if __name__ == '__main__':
 
-    SHOW_BBOX = False
+    SHOW_BBOX = True
     X_RAY_SCAN_IDS_PATH = config.X_RAY_SCAN_IDS_PATH
+    OUTPUT_PATH = config.DATA_OUTPUT
+
+    if not os.path.exists(OUTPUT_PATH):
+        os.makedirs(OUTPUT_PATH)
+    if not os.path.exists(f"{OUTPUT_PATH}\\training_testing"):
+        os.makedirs(f"{OUTPUT_PATH}\\training_testing")
+    if not os.path.exists(f"{OUTPUT_PATH}\\verification"):
+        os.makedirs(f"{OUTPUT_PATH}\\verification")
+
     with open(X_RAY_SCAN_IDS_PATH, 'rb') as f:
         x_ray_ids = pickle.load(f)
-    for id in x_ray_ids:
-        med_scan = MedIMG(f"{config.X_RAY_SCAN_PATH}{id}")
-        med_scan.save_img(config.DATA_OUTPUT + id)
 
-    # image_array = med_scan.image
-    # app = DataGenerator(image_array)
-    #
     # cv2.namedWindow('test draw')
-    # cv2.setMouseCallback('test draw', app.draw_line)
-    # while True:
-    #     if SHOW_BBOX:
-    #         cv2.imshow('test draw', app.bbox_img)
-    #     else:
-    #         cv2.imshow('test draw', app.no_bbox_img)
-    #
-    #     key = cv2.waitKey(1)
-    #
-    #     if key == ord('s'):  # save and exit
-    #         app.save_img()
-    #         print("saving...")
-    #         break
-    #
-    #     elif key == ord('r'):
-    #         app.make_random_line()
-    #
-    #     elif key == ord('b'):
-    #         SHOW_BBOX = not SHOW_BBOX
-    #
-    #     elif key == ord(' '):
-    #         app.add_to_bbox()
+    training_pic_id = 0
+    verification_pic_id = 0
+    for counter in range(10):
+
+        for id in x_ray_ids:
+            if counter < 8:
+                saving_dic = f"{OUTPUT_PATH}\\training_testing\\"
+                pic_id = f"TRAIN_{str(training_pic_id).zfill(5)}.jpg"
+                training_pic_id += 1
+            else:
+                saving_dic = f"{OUTPUT_PATH}\\verification\\"
+                pic_id = f"VERIFICATION{str(verification_pic_id).zfill(5)}.jpg"
+                verification_pic_id += 1
+
+            med_scan = MedIMG(f"{config.X_RAY_SCAN_PATH}{id}")
+            med_scan.save_img(saving_dic + pic_id)
+            Bbox.all_per_img = []
+        counter += 1
+            # image_array = med_scan.image
+            # app = DataGenerator(image_array)
+            # cv2.setMouseCallback('test draw', app.draw_line)
+            #
+            # # while True:
+            # if SHOW_BBOX:
+            #     cv2.imshow('test draw', app.bbox_img)
+            # else:
+            #     cv2.imshow('test draw', app.no_bbox_img)
+            #
+            # key = cv2.waitKey(1)
+            #
+            # if key == ord('s'):  # save and exit
+            #     app.save_img()
+            #     print("saving...")
+            #     break
+            #
+            # elif key == ord('r'):
+            #     app.make_random_line()
+            #
+            # elif key == ord('b'):
+            #     SHOW_BBOX = not SHOW_BBOX
+            #
+            # elif key == ord(' '):
+            #     app.add_to_bbox()
     #
     # cv2.destroyAllWindows()

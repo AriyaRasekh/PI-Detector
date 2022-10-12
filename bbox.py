@@ -5,7 +5,7 @@ import cv2
 
 class Bbox:
     all = []
-
+    all_per_img = []
     #   l ----------------------
     #   |                      |
     #   |                      |
@@ -18,6 +18,7 @@ class Bbox:
                           # 2: drawing
         self.BOX_COLOR = (255, 0, 0) if self.TYPE == 1 else (0, 255, 0)
         Bbox.all.append(self)
+        Bbox.all_per_img.append(self)
 
     @staticmethod
     def do_overlap(l, r):
@@ -27,10 +28,10 @@ class Bbox:
         :return: true if there is an overlap, false otherwise
         """
 
-        if len(Bbox.all) == 0:
+        if len(Bbox.all_per_img) == 0:
             return False
 
-        for box in Bbox.all:
+        for box in Bbox.all_per_img:
 
             # If one rectangle is on left side of other
             if l[0] > box.r_x or box.l_x > r[0]:
@@ -55,7 +56,7 @@ class Bbox:
 
     @staticmethod
     def draw_bboxes(image):
-        for box in Bbox.all:
+        for box in Bbox.all_per_img:
             BOX_COLOR = box.BOX_COLOR
             cv2.rectangle(image, (box.l_x, box.l_y), (box.r_x, box.r_y), BOX_COLOR, 1)
 

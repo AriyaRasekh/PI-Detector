@@ -135,14 +135,6 @@ class MedIMG:
 
     def generate_random_word_info(self, handwritten=False):
 
-        # available_fonts = ["FONT_HERSHEY_SIMPLEX",
-        #                    "FONT_HERSHEY_PLAIN",
-        #                    "FONT_HERSHEY_DUPLEX",
-        #                    "FONT_HERSHEY_COMPLEX",
-        #                    "FONT_HERSHEY_TRIPLEX",
-        #                    "FONT_HERSHEY_COMPLEX_SMALL",
-        #                    "FONT_HERSHEY_SCRIPT_SIMPLEX",
-        #                    "FONT_HERSHEY_SCRIPT_COMPLEX"]
         available_fonts = [0, 1, 2, 3]
 
         available_colors = [(255, 255, 255),
@@ -256,7 +248,8 @@ class MedIMG:
         return newX, newY, newX2, newY2, M
 
     def save_img(self, full_path):
-        cv2.imwrite(full_path, self.image)
+        writeStatus = cv2.imwrite(full_path, self.image)
+        return writeStatus
 
 
 class DataGenerator:
@@ -374,6 +367,9 @@ if __name__ == '__main__':
     # cv2.namedWindow('test draw')
     training_pic_id = 0
     verification_pic_id = 0
+    training_testing_ids = []
+    verification_ids = []
+
     for counter in range(10):
 
         for id in x_ray_ids:
@@ -387,33 +383,71 @@ if __name__ == '__main__':
                 verification_pic_id += 1
 
             med_scan = MedIMG(f"{config.X_RAY_SCAN_PATH}{id}")
-            med_scan.save_img(saving_dic + pic_id)
+            writeStatus = med_scan.save_img(saving_dic + pic_id)
+            if writeStatus:
+                if counter < 8:
+                    training_testing_ids.append(pic_id)
+                else:
+                    verification_ids.append(pic_id)
             Bbox.all_per_img = []
         counter += 1
-            # image_array = med_scan.image
-            # app = DataGenerator(image_array)
-            # cv2.setMouseCallback('test draw', app.draw_line)
-            #
-            # # while True:
-            # if SHOW_BBOX:
-            #     cv2.imshow('test draw', app.bbox_img)
-            # else:
-            #     cv2.imshow('test draw', app.no_bbox_img)
-            #
-            # key = cv2.waitKey(1)
-            #
-            # if key == ord('s'):  # save and exit
-            #     app.save_img()
-            #     print("saving...")
-            #     break
-            #
-            # elif key == ord('r'):
-            #     app.make_random_line()
-            #
-            # elif key == ord('b'):
-            #     SHOW_BBOX = not SHOW_BBOX
-            #
-            # elif key == ord(' '):
-            #     app.add_to_bbox()
+
+    with open(f"{OUTPUT_PATH}training_testing.pkl", "wb") as fp:  # Pickling
+        pickle.dump(training_testing_ids, fp)
+    with open(f"{OUTPUT_PATH}verification_ids.pkl", "wb") as fp:
+        pickle.dump(verification_ids, fp)
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+        # image_array = med_scan.image
+        # app = DataGenerator(image_array)
+        # cv2.setMouseCallback('test draw', app.draw_line)
+        #
+        # # while True:
+        # if SHOW_BBOX:
+        #     cv2.imshow('test draw', app.bbox_img)
+        # else:
+        #     cv2.imshow('test draw', app.no_bbox_img)
+        #
+        # key = cv2.waitKey(1)
+        #
+        # if key == ord('s'):  # save and exit
+        #     app.save_img()
+        #     print("saving...")
+        #     break
+        #
+        # elif key == ord('r'):
+        #     app.make_random_line()
+        #
+        # elif key == ord('b'):
+        #     SHOW_BBOX = not SHOW_BBOX
+        #
+        # elif key == ord(' '):
+        #     app.add_to_bbox()
     #
     # cv2.destroyAllWindows()

@@ -65,5 +65,21 @@ class Bbox:
         BOX_COLOR = Bbox.all[-1].BOX_COLOR
         cv2.rectangle(image, (Bbox.all[-1].l_x, Bbox.all[-1].l_y), (Bbox.all[-1].r_x, Bbox.all[-1].r_y), BOX_COLOR, 1)
 
+    @staticmethod
+    def get_annotation_info_yoloV5(image_width, image_height):
+        annotation_image_data = ""
+        for bounding_box in Bbox.all_per_img:
+            box_width = bounding_box.r_x - bounding_box.l_x
+            box_height = bounding_box.r_y - bounding_box.l_y
+
+            x_center = bounding_box.l_x + (box_width/2)
+            y_center = bounding_box.l_y + (box_height/2)
+
+            annotation_image_data += f"{bounding_box.TYPE} {x_center/image_width} {y_center/image_height} {box_width/image_width} {box_height/image_height}\n"
+
+        return annotation_image_data
+
+
+
     def __repr__(self):
         print(f"self.l_x: {self.l_x}, self.l_y: {self.l_y}, self.r_x: {self.r_x}, self.r_y: {self.r_y}")

@@ -6,10 +6,14 @@ import requests
 import pickle
 import os
 
+from PIL import ImageDraw, Image
+from matplotlib import pyplot as plt
+
 import config
 from bbox import Bbox
 
 DEBUG = False
+SHOW_SAMPLE_OUT_PUT_MAX = 5
 
 
 class MedIMG:
@@ -17,6 +21,8 @@ class MedIMG:
     WORD_DATA_BASE = config.WORD_DATA_BASE
     HANDWRITTEN_WORDS_PATH = config.HANDWRITTEN_WORDS_PATH
     HANDWRITTEN_WORDS_IDS_PATH = config.HANDWRITTEN_WORDS_IDS_PATH
+    NUM_PRINTED_TEXT = [0, 0, 1, 1, 2, 2, 3, 3, 4, 5]
+    NUM_HANDWRITTEN_WORDS = [0, 0, 1, 1, 2, 2, 3, 3, 4, 5]
 
     def __init__(self, PATH):
         self.OVERLAP = False
@@ -31,13 +37,14 @@ class MedIMG:
             self.WORDS[counter] = i.decode("utf-8")
 
         self.image = self.load_from_path(PATH)
+        num_of_texts = MedIMG.NUM_PRINTED_TEXT[random.randrange(len(MedIMG.NUM_PRINTED_TEXT))]
+        num_of_words = MedIMG.NUM_HANDWRITTEN_WORDS[random.randrange(len(MedIMG.NUM_HANDWRITTEN_WORDS))]
 
-        for i in range(5):
+        for i in range(num_of_texts):
             self.generate_text()
 
-        for i in range(5):
+        for i in range(num_of_words):
             random_handwritten_word = self.HANDWRITTEN_WORDS_IDS[random.randrange(len(self.HANDWRITTEN_WORDS_IDS))]
-            # random_handwritten_word = self.HANDWRITTEN_WORDS_IDS[0]
             self.generate_handwritten_text(MedIMG.HANDWRITTEN_WORDS_PATH + random_handwritten_word)
 
     @staticmethod
@@ -347,107 +354,181 @@ class DataGenerator:
             self.r_x = None
             self.r_y = None
 
+def plot_bounding_box(image_file_path, annotation_file_path):
+    image = cv2.imread(image_file_path, cv2.IMREAD_COLOR)
+    with open(annotation_file_path, "r") as file:
+        annotation_list = file.read().split("\n")[:-1]
+        annotation_list = [x.split(" ") for x in annotation_list]
+        annotation_list = [[float(y) for y in x] for x in annotation_list]
+        # print(annotation_list)
+
+    w, h = image.shape[1], image.shape[0]
+    annotations = np.array(annotation_list)
+    transformed_annotations = np.copy(annotations)
+    transformed_annotations[:, [1, 3]] = annotations[:, [1, 3]] * w
+    transformed_annotations[:, [2, 4]] = annotations[:, [2, 4]] * h
+
+    transformed_annotations[:, 1] = transformed_annotations[:, 1] - (transformed_annotations[:, 3] / 2)
+    transformed_annotations[:, 2] = transformed_annotations[:, 2] - (transformed_annotations[:, 4] / 2)
+    transformed_annotations[:, 3] = transformed_annotations[:, 1] + transformed_annotations[:, 3]
+    transformed_annotations[:, 4] = transformed_annotations[:, 2] + transformed_annotations[:, 4]
+
+    for ann in transformed_annotations:
+        obj_cls, x0, y0, x1, y1 = ann
+        cv2.rectangle(image, (int(x0), int(y0)), (int(x1), int(y1)), (0, 255, 0), 2)
+
+    cv2.imshow('image window', image)
+    # add wait key. window waits until user presses a key
+    cv2.waitKey(0)
+    # and finally destroy/close all open windows
+    cv2.destroyAllWindows()
+
 
 if __name__ == '__main__':
 
     SHOW_BBOX = True
     X_RAY_SCAN_IDS_PATH = config.X_RAY_SCAN_IDS_PATH
-    OUTPUT_PATH = config.DATA_OUTPUT
-
-    if not os.path.exists(OUTPUT_PATH):
-        os.makedirs(OUTPUT_PATH)
-    if not os.path.exists(f"{OUTPUT_PATH}\\training_testing"):
-        os.makedirs(f"{OUTPUT_PATH}\\training_testing")
-    if not os.path.exists(f"{OUTPUT_PATH}\\verification"):
-        os.makedirs(f"{OUTPUT_PATH}\\verification")
+    OUTPUT_PATH = config.WHOLE_DATA_OUTPUT
+    image_ids = []
+    annotation_data = []
+    # if not os.path.exists(OUTPUT_PATH):
+    #     os.makedirs(OUTPUT_PATH)
+    # if not os.path.exists(f"{OUTPUT_PATH}\\training_testing"):
+    #     os.makedirs(f"{OUTPUT_PATH}\\training_testing")
+    # if not os.path.exists(f"{OUTPUT_PATH}\\verification"):
+    #     os.makedirs(f"{OUTPUT_PATH}\\verification")
 
     with open(X_RAY_SCAN_IDS_PATH, 'rb') as f:
         x_ray_ids = pickle.load(f)
 
     # cv2.namedWindow('test draw')
-    training_pic_id = 0
-    verification_pic_id = 0
-    training_testing_ids = []
-    verification_ids = []
+    # training_pic_id = 0
+    # verification_pic_id = 0
+    # training_testing_ids = []
+    # verification_ids = []
 
+    pic_id = 0
+    sample_out_put_counter = 0
     for counter in range(10):
-
         for id in x_ray_ids:
-            if counter < 8:
-                saving_dic = f"{OUTPUT_PATH}\\training_testing\\"
-                pic_id = f"TRAIN_{str(training_pic_id).zfill(5)}.jpg"
-                training_pic_id += 1
-            else:
-                saving_dic = f"{OUTPUT_PATH}\\verification\\"
-                pic_id = f"VERIFICATION{str(verification_pic_id).zfill(5)}.jpg"
-                verification_pic_id += 1
-
+            image_name = f"{str(pic_id).zfill(5)}.png"
             med_scan = MedIMG(f"{config.X_RAY_SCAN_PATH}{id}")
-            writeStatus = med_scan.save_img(saving_dic + pic_id)
+            writeStatus = med_scan.save_img(OUTPUT_PATH + image_name)
             if writeStatus:
-                if counter < 8:
-                    training_testing_ids.append(pic_id)
-                else:
-                    verification_ids.append(pic_id)
+                image_ids.append(image_name)
+                pic_id += 1
+                for bounding_box in Bbox.all_per_img:
+                    # print("------------------------")
+                    # print(image_name)
+                    annotation_image_data = Bbox.get_annotation_info_yoloV5(med_scan.image.shape[1], med_scan.image.shape[0])
+                    # print(annotation_image_data)
+                    # print(annotation_image_data)
+                    with open(f"{OUTPUT_PATH + image_name}.txt", "w") as text_file:
+                        text_file.write(annotation_image_data)
+                    # print("------------------------")
+                if sample_out_put_counter <= SHOW_SAMPLE_OUT_PUT_MAX:
+                    plot_bounding_box(OUTPUT_PATH + image_name, f"{OUTPUT_PATH + image_name}.txt")
+                    sample_out_put_counter += 1
+            else:
+                print(f"ERROR: can't write image {image_name} ")
             Bbox.all_per_img = []
-        counter += 1
 
-    with open(f"{OUTPUT_PATH}training_testing.pkl", "wb") as fp:  # Pickling
-        pickle.dump(training_testing_ids, fp)
-    with open(f"{OUTPUT_PATH}verification_ids.pkl", "wb") as fp:
-        pickle.dump(verification_ids, fp)
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-        # image_array = med_scan.image
-        # app = DataGenerator(image_array)
-        # cv2.setMouseCallback('test draw', app.draw_line)
-        #
-        # # while True:
-        # if SHOW_BBOX:
-        #     cv2.imshow('test draw', app.bbox_img)
-        # else:
-        #     cv2.imshow('test draw', app.no_bbox_img)
-        #
-        # key = cv2.waitKey(1)
-        #
-        # if key == ord('s'):  # save and exit
-        #     app.save_img()
-        #     print("saving...")
-        #     break
-        #
-        # elif key == ord('r'):
-        #     app.make_random_line()
-        #
-        # elif key == ord('b'):
-        #     SHOW_BBOX = not SHOW_BBOX
-        #
-        # elif key == ord(' '):
-        #     app.add_to_bbox()
+    # for counter in range(10):
     #
+    #     for id in x_ray_ids:
+    #         if counter < 8:
+    #             saving_dic = f"{OUTPUT_PATH}\\training_testing\\"
+    #             pic_id = f"TRAIN_{str(training_pic_id).zfill(5)}.jpg"
+    #             training_pic_id += 1
+    #         else:
+    #             saving_dic = f"{OUTPUT_PATH}\\verification\\"
+    #             pic_id = f"VERIFICATION{str(verification_pic_id).zfill(5)}.jpg"
+    #             verification_pic_id += 1
+    #
+    #         med_scan = MedIMG(f"{config.X_RAY_SCAN_PATH}{id}")
+    #         writeStatus = med_scan.save_img(saving_dic + pic_id)
+    #         if writeStatus:
+    #             if counter < 8:
+    #                 training_testing_ids.append(pic_id)
+    #             else:
+    #                 verification_ids.append(pic_id)
+    #         Bbox.all_per_img = []
+    #     counter += 1
+    #
+    # with open(f"{OUTPUT_PATH}training_testing.pkl", "wb") as fp:  # Pickling
+    #     pickle.dump(training_testing_ids, fp)
+    # with open(f"{OUTPUT_PATH}verification_ids.pkl", "wb") as fp:
+    #     pickle.dump(verification_ids, fp)
+    #
+    #
+    #
+    #
+    #
+    #
+    #
+    #
+    #
+    #
+    #
+    #
+    #
+    #
+    #
+    #
+    #
+    #
+    #
+    #
+    #
+    #
+    #
+    #
+    #
+    #
+    #
+    #
+    #     # image_array = med_scan.image
+    #     # app = DataGenerator(image_array)
+    #     # cv2.setMouseCallback('test draw', app.draw_line)
+    #     #
+    #     # # while True:
+    #     # if SHOW_BBOX:
+    #     #     cv2.imshow('test draw', app.bbox_img)
+    #     # else:
+    #     #     cv2.imshow('test draw', app.no_bbox_img)
+    #     #
+    #     # key = cv2.waitKey(1)
+    #     #
+    #     # if key == ord('s'):  # save and exit
+    #     #     app.save_img()
+    #     #     print("saving...")
+    #     #     break
+    #     #
+    #     # elif key == ord('r'):
+    #     #     app.make_random_line()
+    #     #
+    #     # elif key == ord('b'):
+    #     #     SHOW_BBOX = not SHOW_BBOX
+    #     #
+    #     # elif key == ord(' '):
+    #     #     app.add_to_bbox()
+    # #
     # cv2.destroyAllWindows()
+
+#
+# # Get any random annotation file
+# annotation_file = random.choice(annotations)
+# with open(annotation_file, "r") as file:
+#     annotation_list = file.read().split("\n")[:-1]
+#     annotation_list = [x.split(" ") for x in annotation_list]
+#     annotation_list = [[float(y) for y in x] for x in annotation_list]
+#
+# # Get the corresponding image file
+# image_file = annotation_file.replace("annotations", "images").replace("txt", "png")
+# assert os.path.exists(image_file)
+#
+# # Load the image
+# image = Image.open(image_file)
+#
+# # Plot the Bounding Box
+# plot_bounding_box(image, annotation_list)

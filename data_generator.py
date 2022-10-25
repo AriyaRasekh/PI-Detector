@@ -4,10 +4,6 @@ import cv2
 import random
 import requests
 import pickle
-import os
-
-from PIL import ImageDraw, Image
-from matplotlib import pyplot as plt
 
 import config
 from bbox import Bbox
